@@ -1,0 +1,114 @@
+# Imagem do container
+image:
+  repository: quay.io/fcalomen/status-monitor
+  tag: "0.2"
+  pullPolicy: IfNotPresent
+
+# Réplicas (desabilite HPA ou ajuste os limites para usar HPA)
+replicaCount: 1
+
+# Porta do serviço / app
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  annotations: {}
+
+# Rota OpenShift (exposição externa)
+route:
+  enabled: true
+  host: ""  # opcional: defina para ter hostname fixo, ex: status.apps.seucluster.example
+  tls:
+    enabled: true
+    termination: edge                   # edge | passthrough | reencrypt
+    insecureEdgeTerminationPolicy: Redirect
+  annotations: {}
+
+# Variáveis de ambiente do app
+env:
+  PORT: "8000"
+  DB_PATH: "/data/monitor.db"
+  MONITOR_INTERVAL: "300"
+  IPV6_ENABLED: "0"
+  MONITOR_FQDNS: "cdn01.quay.io,cdn02.quay.io"
+  MAX_TRACE_HOPS: "20"
+  DISABLE_BACKGROUND: "0"
+
+# Itens extras (além de env) se quiser injetar de ConfigMaps/Secrets
+extraEnv: []        # - name: FOO\n  value: bar
+extraEnvFrom: []    # - configMapRef: { name: meu-config }  |  - secretRef: { name: meu-secret }
+
+# Persistência (SQLite em /data). Se desabilitar, usa emptyDir.
+persistence:
+  enabled: true
+  existingClaim: ""        # se informado, não cria PVC
+  size: 1Gi
+  accessModes: ["ReadWriteOnce"]
+  storageClass: ""         # deixe vazio para herdado do cluster
+  mountPath: /data
+
+# Probes HTTP
+probes:
+  liveness:
+    path: /health
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    timeoutSeconds: 3
+    failureThreshold: 3
+  readiness:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+
+# Recursos
+resources:
+  requests:
+    cpu: 50m
+    memory: 128Mi
+  limits:
+    cpu: 200m
+    memory: 256Mi
+
+# SecurityContext amigável ao SCC 'restricted' do OpenShift (UID aleatório)
+securityContext:
+  enabled: true
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: false
+  capabilities:
+    drop: ["ALL"]
+  seccompProfile:
+    type: RuntimeDefault
+  fsGroup: null         # deixe null para não forçar; preencha se precisar (ex.: 1001)
+  runAsUser: null       # deixe null para permitir UID aleatório do OpenShift
+
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+imagePullSecrets: []    # - name: myregistrysecret
+podAnnotations: {}
+podLabels: {}
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# Autoscaling Horizontal (opcional)
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70
+  # targetMemoryUtilizationPercentage: 80
+
+# NetworkPolicy (opcional)
+networkPolicy:
+  enabled: false
+  ingress:
+    - from: []   # personalize conforme necessário
+
+# Rótulos comuns extras
+commonLabels: {}

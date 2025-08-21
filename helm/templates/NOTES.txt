@@ -1,0 +1,22 @@
+Obrigado por instalar {{ .Chart.Name }}!
+
+1) Ver o pod:
+   kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }}
+
+2) Service (ClusterIP):
+   kubectl get svc {{ include "status-monitor.fullname" . }} -n {{ .Release.Namespace }}
+
+3) Health:
+   kubectl run -it --rm curl --image=curlimages/curl:8.8.0 -- \
+     curl -fsS http://{{ include "status-monitor.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}/health
+
+{{- if .Values.route.enabled }}
+4) Rota OpenShift:
+   oc get route {{ include "status-monitor.fullname" . }} -n {{ .Release.Namespace }}
+
+   {{- if .Values.route.host }}
+   URL: https://{{ .Values.route.host }}
+   {{- else }}
+   (O OpenShift definirá o host; confira no comando acima)
+   {{- end }}
+{{- end }}

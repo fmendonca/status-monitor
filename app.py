@@ -1,19 +1,22 @@
 #!/usr/bin/env python3
-import os, sqlite3, threading, time, socket, ssl, subprocess, shutil, platform
+import os, sqlite3, threading, time, socket, ssl, subprocess, shutil, platform, json
 from datetime import datetime, timezone
 from flask import Flask, render_template, request, jsonify, Response
 import yaml  # pip install PyYAML
 
-APP_TITLE = "Status Monitor"
+APP_TITLE = "FQDN Monitor"
 DB_PATH = os.getenv("DB_PATH", "monitor.db")
 INTERVAL = int(os.getenv("MONITOR_INTERVAL", "300"))
 HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "6.0"))
-PING_COUNT = int(os.getenv("PING_COUNT", "3"))
-PING_TIMEOUT = int(os.getenv("PING_TIMEOUT", "2"))
+PING_COUNT = int(os.getenv("PING_COUNT", "3"))          # legado (não usado mais)
+PING_TIMEOUT = int(os.getenv("PING_TIMEOUT", "2"))      # legado (não usado mais)
 MAX_TRACE_HOPS = int(os.getenv("MAX_TRACE_HOPS", "20"))
-
-# IPv6 desabilitado por padrão; habilite com IPV6_ENABLED=1|true|yes|on
 DEFAULT_IPV6_ENABLED = 1 if os.getenv("IPV6_ENABLED", "").lower() in ("1","true","yes","on") else 0
+
+# NOVO: portas a escanear com nmap (default 80,443)
+MONITOR_PORTS = [p.strip() for p in os.getenv("MONITOR_PORTS", "80,443").split(",") if p.strip().isdigit()]
+if not MONITOR_PORTS:
+    MONITOR_PORTS = ["80","443"]
 
 app = Flask(__name__, template_folder="templates", static_folder="static")
 
@@ -22,6 +25,10 @@ def get_db():
     conn = sqlite3.connect(DB_PATH, timeout=30)
     conn.row_factory = sqlite3.Row
     return conn
+
+def _column_exists(cur, table, col):
+    cur.execute(f"PRAGMA table_info({table});")
+    return any(r[1] == col for r in cur.fetchall())
 
 def init_db():
     conn = get_db()
@@ -36,12 +43,15 @@ def init_db():
         trace_ok INTEGER, trace_output TEXT,
         created_at TEXT NOT NULL
     );""")
+    # MIGRAÇÃO: adicionar coluna nmap_states (JSON) se não existir
+    if not _column_exists(cur, "results", "nmap_states"):
+        cur.execute("ALTER TABLE results ADD COLUMN nmap_states TEXT;")
+    # settings
     cur.execute("""
     CREATE TABLE IF NOT EXISTS settings (
         key TEXT PRIMARY KEY,
         value TEXT NOT NULL
     );""")
-    # valor inicial do IPv6
     cur.execute("SELECT value FROM settings WHERE key='ipv6_enabled';")
     row = cur.fetchone()
     if row is None:
@@ -79,7 +89,7 @@ def resolve_ips(fqdn: str):
     except Exception:
         return [], False
 
-# ---------------- HTTP/HTTPS ----------------
+# ---------------- HTTP/HTTPS (sockets) ----------------
 def _http_request(ip, fqdn, use_https):
     port = 443 if use_https else 80
     try:
@@ -111,35 +121,46 @@ def _http_request(ip, fqdn, use_https):
 def test_http(ip,fqdn):  return _http_request(ip, fqdn, False)
 def test_https(ip,fqdn): return _http_request(ip, fqdn, True)
 
-# ---------------- Ping ----------------
-def test_ping(ip):
-    is_v6 = ":" in ip
-    ping_bin = shutil.which("ping6") if is_v6 and platform.system() != "Windows" else shutil.which("ping")
-    if not ping_bin: return 0, None, None, "ping not found"
+# ---------------- NMAP (substitui 'ping') ----------------
+def test_nmap(ip):
+    """
+    Usa nmap connect scan (-sT) sem root para checar as portas definidas em MONITOR_PORTS.
+    Retorna (states_dict, err_str|None). States: { "80": "open|closed|filtered|..." }
+    """
+    nmap_bin = shutil.which("nmap")
+    if not nmap_bin:
+        return {}, "nmap not found"
 
-    args = [ping_bin, "-c", str(PING_COUNT)]
-    if platform.system() == "Darwin": args += ["-W", str(PING_TIMEOUT * 1000)]
-    else: args += ["-W", str(PING_TIMEOUT)]
-    if is_v6 and "ping6" not in os.path.basename(ping_bin): args.insert(1, "-6")
-    args.append(ip)
+    ports_csv = ",".join(MONITOR_PORTS)
+    is_v6 = ":" in ip
+    args = [nmap_bin]
+    if is_v6: args.append("-6")
+    args += ["-Pn", "-sT", "-T4", "--host-timeout", "20s", "-p", ports_csv, "-oG", "-", ip]
 
     try:
-        proc = subprocess.run(args, capture_output=True, text=True, timeout=PING_TIMEOUT*PING_COUNT+4)
-        out = proc.stdout + proc.stderr
-        ok = 1 if proc.returncode == 0 else 0
-        loss = avg = None
+        proc = subprocess.run(args, capture_output=True, text=True, timeout=40)
+        out = proc.stdout or proc.stderr
+        # Parse saída -oG:
+        # Exemplo: "Ports: 80/open/tcp//http///, 443/closed/tcp//https///"
+        states = {}
         for line in out.splitlines():
-            if "packet loss" in line:
-                try: loss = float(line.split("%")[0].split()[-1])
-                except: pass
-            if "min/avg/max" in line or "round-trip" in line:
-                try: avg = float(line.split("=")[1].split()[0].split("/")[1])
-                except: pass
-        return ok, avg, loss, (None if ok else out.strip())
+            if "Ports:" in line:
+                ports_part = line.split("Ports:",1)[1].strip()
+                for entry in ports_part.split(","):
+                    entry = entry.strip()
+                    # 80/open/tcp//http///  -> port/state/...
+                    parts = entry.split("/")
+                    if len(parts) >= 2 and parts[0].isdigit():
+                        port = parts[0]
+                        state = parts[1]
+                        states[port] = state
+        if not states and proc.returncode != 0:
+            return {}, out.strip() or f"nmap exited {proc.returncode}"
+        return states, None
     except subprocess.TimeoutExpired:
-        return 0, None, None, "ping timeout"
+        return {}, "nmap timeout"
     except Exception as e:
-        return 0, None, None, str(e)
+        return {}, str(e)
 
 # ---------------- Trace ----------------
 def test_trace(ip):
@@ -166,13 +187,15 @@ def store_result(row):
         (fqdn,ip,dns_ok,http_ok,http_status,http_error,
          https_ok,https_status,https_error,tls_verified,
          ping_ok,ping_avg_ms,ping_loss_pct,ping_error,
-         trace_ok,trace_output,created_at)
-        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
+         trace_ok,trace_output,nmap_states,created_at)
+        VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
         (row["fqdn"],row["ip"],row.get("dns_ok",0),
          row.get("http_ok"),row.get("http_status"),row.get("http_error"),
          row.get("https_ok"),row.get("https_status"),row.get("https_error"),row.get("tls_verified"),
-         row.get("ping_ok"),row.get("ping_avg_ms"),row.get("ping_loss_pct"),row.get("ping_error"),
-         row.get("trace_ok"),row.get("trace_output"),
+         # Reaproveitando campos 'ping_*' para status geral do nmap
+         row.get("ping_ok"), None, None, row.get("ping_error"),
+         row.get("trace_ok"), row.get("trace_output"),
+         row.get("nmap_states"),  # JSON string
          datetime.now(timezone.utc).isoformat()))
     conn.commit(); conn.close()
 
@@ -181,30 +204,33 @@ def test_fqdn_once(fqdn):
     if not ips:
         msg = "dns failed" if not dns_ok else "no IPs allowed by family filter (IPv6 off)"
         store_result(dict(fqdn=fqdn, ip="(no-ip)", dns_ok=1 if dns_ok else 0,
-                          http_ok=0, https_ok=0, ping_ok=0, trace_ok=0,
-                          http_error=msg, https_error=msg, ping_error=msg, trace_output=msg))
+                          http_ok=0, https_ok=0,
+                          ping_ok=0, ping_error=msg,
+                          trace_ok=0, trace_output=msg,
+                          nmap_states=json.dumps({})))
         return
     for ip in ips:
         http_ok,http_code,http_err,_ = test_http(ip,fqdn)
         https_ok,https_code,https_err,tls_ok = test_https(ip,fqdn)
-        ping_ok,ping_avg,ping_loss,ping_err = test_ping(ip)
+        nmap_states, nmap_err = test_nmap(ip)
+        # ping_ok agora indica se ALGUMA porta escaneada está "open"
+        nmap_ok = 1 if any(state == "open" for state in nmap_states.values()) else 0
         trace_ok,trace_out = test_trace(ip)
         store_result(dict(
             fqdn=fqdn, ip=ip, dns_ok=1,
             http_ok=http_ok, http_status=http_code, http_error=http_err,
             https_ok=https_ok, https_status=https_code, https_error=https_err, tls_verified=tls_ok,
-            ping_ok=ping_ok, ping_avg_ms=ping_avg, ping_loss_pct=ping_loss, ping_error=ping_err,
-            trace_ok=trace_ok, trace_output=trace_out
+            ping_ok=nmap_ok, ping_error=nmap_err,
+            trace_ok=trace_ok, trace_output=trace_out,
+            nmap_states=json.dumps(nmap_states, ensure_ascii=False)
         ))
 
 def get_configured_fqdns():
     return [x.strip() for x in os.getenv("MONITOR_FQDNS","").split(",") if x.strip()]
 
 _running_lock = threading.Lock()
-
 def run_all_now():
-    if _running_lock.locked():  # já tem teste em execução
-        return False
+    if _running_lock.locked(): return False
     def _runner():
         with _running_lock:
             for fq in get_configured_fqdns():
@@ -220,7 +246,19 @@ def background_loop():
         time.sleep(max(10, INTERVAL))
 
 # ---------------- Fetch helpers ----------------
-def fetch_latest(latest=True, limit=500):
+def _rows_to_jsonable(rows):
+    """Converte nmap_states (string) para dict antes de enviar ao cliente."""
+    out = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["nmap_states"] = json.loads(d.get("nmap_states") or "{}")
+        except Exception:
+            d["nmap_states"] = {}
+        out.append(d)
+    return out
+
+def fetch_latest(latest=True, limit=500, jsonable=False):
     conn=get_db(); cur=conn.cursor()
     if latest:
         cur.execute("""
@@ -234,7 +272,16 @@ def fetch_latest(latest=True, limit=500):
         cur.execute("SELECT * FROM results ORDER BY datetime(created_at) DESC LIMIT ?", (limit,))
     rows=[dict(r) for r in cur.fetchall()]
     conn.close()
-    return rows
+    if jsonable:
+        return _rows_to_jsonable(rows)
+    else:
+        # para renderização server-side, também é útil ter dict pronto
+        for d in rows:
+            try:
+                d["nmap_states"] = json.loads(d.get("nmap_states") or "{}")
+            except Exception:
+                d["nmap_states"] = {}
+        return rows
 
 # ---------------- Admin & Status ----------------
 @app.route("/admin/clear", methods=["POST"])
@@ -255,10 +302,11 @@ def status():
 def index():
     return render_template("index.html",
         title=APP_TITLE,
-        rows=fetch_latest(),
+        rows=fetch_latest(jsonable=False),
         fqdns=get_configured_fqdns(),
         ipv6_enabled=ipv6_enabled(),
-        interval=INTERVAL)
+        interval=INTERVAL,
+        monitor_ports=",".join(MONITOR_PORTS))
 
 @app.route("/run", methods=["POST"])
 def run_now():
@@ -279,13 +327,14 @@ def toggle_ipv6():
 @app.route("/export.txt")
 def export_txt():
     latest = request.args.get("latest","1") == "1"
-    rows = fetch_latest(latest)
+    rows = fetch_latest(latest, jsonable=True)
     lines = []
     for r in rows:
+        states = r.get("nmap_states") or {}
+        states_txt = " ".join([f"{p}:{s}" for p,s in states.items()]) if states else "no-scan"
         lines.append(
             f"{r.get('created_at','')} {r.get('fqdn','')} {r.get('ip','')} "
-            f"HTTP:{r.get('http_status','-')} HTTPS:{r.get('https_status','-')} "
-            f"PING_OK:{r.get('ping_ok','-')} AVG:{r.get('ping_avg_ms','-')}ms LOSS:{r.get('ping_loss_pct','-')}%"
+            f"NMAP[{states_txt}] HTTP:{r.get('http_status','-')} HTTPS:{r.get('https_status','-')}"
         )
     return Response("\n".join(lines), mimetype="text/plain",
                     headers={"Content-Disposition": "attachment; filename=export.txt"})
@@ -293,14 +342,14 @@ def export_txt():
 @app.route("/export.yaml")
 def export_yaml():
     latest = request.args.get("latest","1") == "1"
-    return Response(yaml.dump(fetch_latest(latest), allow_unicode=True),
+    return Response(yaml.dump(fetch_latest(latest, jsonable=True), allow_unicode=True),
                     mimetype="application/x-yaml",
                     headers={"Content-Disposition": "attachment; filename=export.yaml"})
 
 @app.route("/export.json")
 def export_json():
     latest = request.args.get("latest","1") == "1"
-    return jsonify(fetch_latest(latest))
+    return jsonify(fetch_latest(latest, jsonable=True))
 
 @app.route("/health")
 def health():
@@ -309,7 +358,8 @@ def health():
         "time": datetime.utcnow().isoformat(),
         "fqdns": get_configured_fqdns(),
         "interval": INTERVAL,
-        "ipv6_enabled": ipv6_enabled()
+        "ipv6_enabled": ipv6_enabled(),
+        "monitor_ports": MONITOR_PORTS
     })
 
 def main():

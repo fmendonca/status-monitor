@@ -7,39 +7,113 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
       :root {
-        --bg: #0b0f19; --card: #111726; --accent: #1b2540; --line: #1c2742;
-        --text: #eaeff7; --muted: #9fb3d9; --ok:#198754; --fail:#dc3545; --warn:#b58900;
+        /* Paleta com alto contraste */
+        --bg: #0a0f1a;        /* fundo */
+        --card: #0f1626;      /* cards */
+        --card-2: #121d33;    /* zebra */
+        --hover: #16253f;     /* hover */
+        --line: #2a3b63;      /* linhas/borda */
+        --text: #f1f5ff;      /* texto principal */
+        --muted: #c7d3ee;     /* texto secundário */
+        --ok:#22c55e;         /* verde */
+        --fail:#ef4444;       /* vermelho */
+        --accent:#1e3a8a;     /* azul p/ botões outline */
       }
-      body { background: var(--bg); color: var(--text); }
-      .card { background: var(--card); border: 1px solid var(--line); }
-      .pill { background: var(--accent); padding:4px 10px; border-radius:999px; font-size:.85rem; }
-      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; }
-      a { color: #8ab4ff; }
-      .table thead { color: var(--muted); position: sticky; top: 0; background: var(--card); z-index:2; }
-      .badge-ok { background: var(--ok); }
+
+      /* Base */
+      html, body { height: 100%; }
+      body {
+        background: var(--bg);
+        color: var(--text);
+        font-size: 16px;
+        line-height: 1.6;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .mono {
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-variant-ligatures: none;
+      }
+      a { color: #9ec5ff; }
+
+      /* Cards / Pills */
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        box-shadow: 0 4px 16px rgba(0,0,0,.25);
+      }
+      .pill {
+        background: #0e1a33;
+        border: 1px solid var(--line);
+        padding: .35rem .65rem;
+        border-radius: 999px;
+        font-size: .9rem;
+        color: var(--muted);
+      }
+
+      /* Botões mais legíveis */
+      .btn { font-weight: 600; }
+      .btn-success { background: #1f8a4d; border: 0; }
+      .btn-success:hover { background: #1a6f3e; }
+      .btn-secondary { background: #314462; border: 0; }
+      .btn-secondary:hover { background: #263653; }
+      .btn-danger { background: #c03535; border: 0; }
+      .btn-danger:hover { background: #a22c2c; }
+      .btn-outline-light {
+        border-color: var(--line); color: var(--muted);
+        background: transparent;
+      }
+      .btn-outline-light:hover { background: #192948; color: var(--text); }
+
+      /* Badges */
+      .badge-ok   { background: var(--ok); }
       .badge-fail { background: var(--fail); }
-      .search { background: #0e1526; border: 1px solid #253152; color: var(--text); }
-      .btn-outline-light { border-color: #3a4a6b; color: #cfe1ff; }
-      .btn-outline-light:hover { background: #243152; }
+
+      /* Tabela mais legível */
+      .table { margin: 0; }
+      .table thead {
+        color: var(--text);
+        background: #0c1324;
+        position: sticky; top: 0; z-index: 2;
+      }
+      .table th, .table td {
+        padding: .85rem 1rem;
+        vertical-align: middle;
+        border-color: var(--line);
+        font-size: 0.98rem;
+      }
+      .table tbody tr:nth-child(even) { background: var(--card-2); }
+      .table tbody tr:hover { background: var(--hover); }
+
+      /* Busca */
+      .search {
+        background: #0e1528;
+        border: 1px solid var(--line);
+        color: var(--text);
+        height: 38px;
+      }
+      .search::placeholder { color: #aabbe3; opacity: .9; }
+
+      .text-muted, .small { color: var(--muted) !important; }
       #alert { display:none; }
-      .scrollbox { max-height: 260px; overflow: auto; white-space: pre; }
-      .toolbar { gap:.5rem }
+      .scrollbox { max-height: 320px; overflow: auto; white-space: pre; border: 1px solid var(--line); border-radius: .5rem; padding: .5rem; background:#0b152a; }
+
+      /* Toolbar responsiva */
+      .toolbar { gap:.5rem; flex-wrap: wrap; }
       .toolbar .btn, .toolbar a { white-space: nowrap; }
-      .stat { display:flex; gap:.5rem; align-items:center; }
-      .dot { width:10px; height:10px; border-radius:50%; display:inline-block; }
-      .dot.ok{ background: var(--ok); } .dot.fail{ background: var(--fail); }
     </style>
   </head>
   <body>
     <div class="container py-4">
       <div id="alert" class="alert alert-warning" role="alert"></div>
 
-      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3">
-        <div class="d-flex align-items-center gap-3">
+      <!-- Header / Toolbar -->
+      <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-3">
+        <div class="d-flex align-items-center gap-3 flex-wrap">
           <h1 class="h3 m-0">{{ title }}</h1>
           <div class="pill">Intervalo: <span class="mono">{{ interval }}</span>s</div>
           <div class="pill">Auto-refresh: <span class="mono" id="auto-interval">15</span>s</div>
-          <div class="form-check form-switch ms-2">
+          <div class="form-check form-switch ms-1">
             <input class="form-check-input" type="checkbox" role="switch" id="switch-ipv6" {{ 'checked' if ipv6_enabled else '' }}>
             <label class="form-check-label" for="switch-ipv6">IPv6</label>
           </div>
@@ -56,50 +130,52 @@
         </div>
       </div>
 
+      <!-- Painel de estado -->
       <div class="card mb-3">
-        <div class="card-body d-flex flex-wrap gap-3 align-items-center">
+        <div class="card-body d-flex flex-wrap gap-4 align-items-start">
           <div>
-            <div class="text-muted small">FQDNs monitorados</div>
+            <div class="small text-muted mb-1">FQDNs monitorados</div>
             {% if fqdns and fqdns|length > 0 %}
               <div class="mono">{{ ", ".join(fqdns) }}</div>
             {% else %}
-              <div class="text-warning">Nenhum FQDN configurado. Defina <span class="mono">MONITOR_FQDNS</span>.</div>
+              <div class="text-warning fw-semibold">Nenhum FQDN configurado. Defina <span class="mono">MONITOR_FQDNS</span>.</div>
             {% endif %}
           </div>
-          <div class="ms-auto d-flex gap-4">
-            <div class="stat"><span class="dot ok"></span><span>UP:</span> <b id="count-up">0</b></div>
-            <div class="stat"><span class="dot fail"></span><span>DOWN:</span> <b id="count-down">0</b></div>
-            <div class="stat"><span>Total:</span> <b id="count-total">0</b></div>
-            <div class="stat"><span>Última atualização:</span> <b id="last-update">—</b></div>
+          <div class="ms-auto d-flex gap-4 flex-wrap">
+            <div><span class="badge badge-ok me-2">UP</span><b id="count-up">0</b></div>
+            <div><span class="badge badge-fail me-2">DOWN</span><b id="count-down">0</b></div>
+            <div> Total: <b id="count-total">0</b></div>
+            <div> Última atualização: <b id="last-update">—</b></div>
           </div>
         </div>
       </div>
 
+      <!-- Tabela -->
       <div class="card">
         <div class="card-body p-0">
           <div class="table-responsive">
             <table class="table table-sm align-middle m-0">
               <thead>
                 <tr>
-                  <th style="width:28%">FQDN</th>
-                  <th style="width:22%">IP</th>
-                  <th style="width:15%">Alcance (nmap -sn)</th>
+                  <th style="width:30%">FQDN</th>
+                  <th style="width:25%">IP</th>
+                  <th style="width:18%">Alcance (nmap -sn)</th>
                   <th>Traceroute</th>
-                  <th style="width:15%">Quando</th>
+                  <th style="width:18%">Quando</th>
                 </tr>
               </thead>
               <tbody id="rows">
                 {% for r in rows %}
                   <tr data-fqdn="{{ r.get('fqdn','') }}" data-ip="{{ r.get('ip','') }}">
-                    <td class="mono">{{ r.get('fqdn','') }}</td>
+                    <td class="mono fw-semibold">{{ r.get('fqdn','') }}</td>
                     <td class="mono">{{ r.get('ip','') }}</td>
                     <td>
                       {% if r.get('ping_ok') %}
                         <span class="badge badge-ok">UP</span>
-                        {% if r.get('ping_error') %}<div class="small text-success">{{ r.get('ping_error') }}</div>{% endif %}
+                        {% if r.get('ping_error') %}<div class="small text-success mt-1">{{ r.get('ping_error') }}</div>{% endif %}
                       {% else %}
                         <span class="badge badge-fail">FAIL</span>
-                        {% if r.get('ping_error') %}<div class="small text-muted">{{ r.get('ping_error') }}</div>{% endif %}
+                        {% if r.get('ping_error') %}<div class="small text-muted mt-1">{{ r.get('ping_error') }}</div>{% endif %}
                       {% endif %}
                     </td>
                     <td>
@@ -115,7 +191,7 @@
                     <td colspan="5"><div class="scrollbox mono">{{ r.get('trace_output','') }}</div></td>
                   </tr>
                 {% else %}
-                  <tr><td colspan="5" class="text-center text-muted p-3">Sem dados ainda. Clique em <b>Executar agora</b>.</td></tr>
+                  <tr><td colspan="5" class="text-center text-muted p-4">Sem dados ainda. Clique em <b>Executar agora</b>.</td></tr>
                 {% endfor %}
               </tbody>
             </table>
@@ -126,6 +202,7 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
+      /* ===== Comportamento ===== */
       const AUTO_MS_DEFAULT = 15000;
       let autoMs = AUTO_MS_DEFAULT;
       let autoTimer = null;
@@ -144,37 +221,42 @@
       const lastUpdate = $('#last-update');
       $('#auto-interval').textContent = Math.floor(autoMs/1000);
 
-      function showAlert(msg) {
-        alertBox.textContent = msg;
-        alertBox.style.display = 'block';
-        setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
-      }
-
       const esc = v => (v == null ? '' : String(v)
         .replace(/&/g,'&amp;').replace(/</g,'&lt;')
         .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'));
 
       const badge = (cls, text) => `<span class="badge ${cls}">${esc(text)}</span>`;
 
+      function showAlert(msg) {
+        alertBox.textContent = msg;
+        alertBox.style.display = 'block';
+        setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
+      }
+
+      function formatWhen(iso) {
+        try { return new Date(iso).toLocaleString(); }
+        catch { return iso || ''; }
+      }
+
       function reachCell(r) {
         if (r.ping_ok) {
-          const extra = r.ping_error ? `<div class="small text-success">${esc(r.ping_error)}</div>` : '';
-          return badge('badge-ok','UP') + extra;
+          const hint = r.ping_error ? `<div class="small text-success mt-1">${esc(r.ping_error)}</div>` : '';
+          return badge('badge-ok','UP') + hint;
         }
-        const err = r.ping_error ? `<div class="small text-muted">${esc(r.ping_error)}</div>` : '';
+        const err = r.ping_error ? `<div class="small text-muted mt-1">${esc(r.ping_error)}</div>` : '';
         return badge('badge-fail','FAIL') + err;
       }
 
       function rowHtml(r) {
         return `
           <tr data-fqdn="${esc(r.fqdn)}" data-ip="${esc(r.ip)}">
-            <td class="mono">${esc(r.fqdn)}</td>
+            <td class="mono fw-semibold">${esc(r.fqdn)}</td>
             <td class="mono">${esc(r.ip)}</td>
             <td>${reachCell(r)}</td>
             <td>${r.trace_ok
               ? `<button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#trace-${r.id}">Ver</button>`
               : badge('badge-fail','FAIL')}</td>
-            <td class="small mono">${esc(r.created_at)}</td>
+            <td class="small mono">${esc(formatWhen(r.created_at))}</td>
           </tr>
           <tr class="collapse" id="trace-${r.id}">
             <td colspan="5"><div class="scrollbox mono">${esc(r.trace_output || '')}</div></td>
@@ -185,26 +267,22 @@
       function applyFilter() {
         const q = (search.value || '').toLowerCase().trim();
         for (const tr of tbody.querySelectorAll('tr')) {
-          if (tr.classList.contains('collapse')) continue; // ignora linhas de trace
+          if (tr.classList.contains('collapse')) continue;
           const fq = tr.getAttribute('data-fqdn')?.toLowerCase() || '';
           const ip = tr.getAttribute('data-ip')?.toLowerCase() || '';
           const show = !q || fq.includes(q) || ip.includes(q);
           tr.style.display = show ? '' : 'none';
-          // colapso correspondente
-          const id = tr.nextElementSibling && tr.nextElementSibling.id;
-          if (id && tr.nextElementSibling.classList.contains('collapse')) {
-            tr.nextElementSibling.style.display = show ? '' : 'none';
-          }
+          const next = tr.nextElementSibling;
+          if (next && next.classList.contains('collapse')) next.style.display = show ? '' : 'none';
         }
       }
 
       function updateStats(data) {
         const total = data.length;
         const up = data.filter(r => r.ping_ok).length;
-        const down = total - up;
         countTotal.textContent = total;
         countUp.textContent = up;
-        countDown.textContent = down;
+        countDown.textContent = total - up;
         lastUpdate.textContent = new Date().toLocaleString();
       }
 
@@ -213,27 +291,22 @@
           const res = await fetch('/export.json?latest=1', { cache: 'no-store' });
           const data = await res.json();
           if (!Array.isArray(data)) return;
-          const html = data.length
-            ? data.map(rowHtml).join('')
-            : `<tr><td colspan="5" class="text-center text-muted p-3">Sem dados ainda. Clique em <b>Executar agora</b>.</td></tr>`;
-          tbody.innerHTML = html;
+          tbody.innerHTML = data.length ? data.map(rowHtml).join('')
+                                        : `<tr><td colspan="5" class="text-center text-muted p-4">Sem dados ainda. Clique em <b>Executar agora</b>.</td></tr>`;
           updateStats(data);
           applyFilter();
-        } catch (e) {
-          // silencioso
-        }
+        } catch (e) { /* silencioso */ }
       }
 
-      function startAuto() { if (!autoTimer) autoTimer = setInterval(refreshTable, autoMs); }
-      function stopAuto() { clearInterval(autoTimer); autoTimer = null; }
+      function startAuto(){ if(!autoTimer) autoTimer = setInterval(refreshTable, autoMs); }
+      function stopAuto(){ clearInterval(autoTimer); autoTimer = null; }
 
-      // inicial
+      // Inicial
       refreshTable(); startAuto();
 
-      // eventos
+      // Eventos
       search.addEventListener('input', applyFilter);
       btnRefresh.addEventListener('click', refreshTable);
-
       btnRun.addEventListener('click', async () => {
         btnRun.disabled = true;
         try {
@@ -244,26 +317,19 @@
         } catch (e) {
           showAlert('Falha ao iniciar execução: ' + e);
         } finally {
-          setTimeout(() => btnRun.disabled = false, 1500);
+          setTimeout(() => btnRun.disabled = false, 1400);
         }
       });
-
       btnClear.addEventListener('click', async () => {
         if (!confirm('Tem certeza? Isso apagará TODOS os dados (results e settings).')) return;
-        try {
-          await fetch('/admin/clear', { method: 'POST' });
-          await refreshTable();
-        } catch (err) {
-          showAlert('Falha ao limpar banco: ' + err);
-        }
+        try { await fetch('/admin/clear', { method: 'POST' }); await refreshTable(); }
+        catch (err) { showAlert('Falha ao limpar banco: ' + err); }
       });
-
       btnToggleAuto.addEventListener('click', () => {
         autoPaused = !autoPaused;
         if (autoPaused) { stopAuto(); btnToggleAuto.textContent = 'Retomar auto'; }
         else { startAuto(); btnToggleAuto.textContent = 'Pausar auto'; }
       });
-
       if (switchIPv6) {
         switchIPv6.addEventListener('change', async (e) => {
           try {

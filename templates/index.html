@@ -1,104 +1,85 @@
 <!doctype html>
-<html lang="pt-br">
+<html lang="pt-br" data-theme="dark">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ title }}</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script>
+      // Aplica tema salvo ANTES do paint para evitar flash
+      (function() {
+        const saved = localStorage.getItem('theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const theme = saved || (prefersDark ? 'dark' : 'light');
+        document.documentElement.setAttribute('data-theme', theme);
+      })();
+    </script>
     <style>
-      :root {
-        /* Paleta com alto contraste */
-        --bg: #0a0f1a;        /* fundo */
-        --card: #0f1626;      /* cards */
-        --card-2: #121d33;    /* zebra */
-        --hover: #16253f;     /* hover */
-        --line: #2a3b63;      /* linhas/borda */
-        --text: #f1f5ff;      /* texto principal */
-        --muted: #c7d3ee;     /* texto secundário */
-        --ok:#22c55e;         /* verde */
-        --fail:#ef4444;       /* vermelho */
-        --accent:#1e3a8a;     /* azul p/ botões outline */
+      :root { color-scheme: light dark; }
+
+      /* ===== Paletas por tema ===== */
+      [data-theme="dark"]{
+        --bg: #0a0f1a;        --card: #0f1626;      --card-2: #121d33;
+        --hover:#16253f;      --line:#2a3b63;
+        --text:#f5f7ff;       --muted:#cfd9f3;
+        --ok:#22c55e;         --fail:#ef4444;
+        --btn-outline:#3a4a6b; --link:#9ec5ff; --thead:#0c1324;
+      }
+      [data-theme="light"]{
+        --bg:#f7f9fc;         --card:#ffffff;       --card-2:#f2f6fb;
+        --hover:#e9f0ff;      --line:#cfd8ea;
+        --text:#0b1220;       --muted:#495a78;
+        --ok:#16a34a;         --fail:#dc2626;
+        --btn-outline:#b6c4dd; --link:#0b61ff; --thead:#f0f4fb;
       }
 
-      /* Base */
+      /* ===== Base ===== */
       html, body { height: 100%; }
       body {
         background: var(--bg);
         color: var(--text);
-        font-size: 16px;
-        line-height: 1.6;
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
+        font-size: 16px; line-height: 1.6;
+        -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale;
       }
-      .mono {
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
-        font-variant-ligatures: none;
-      }
-      a { color: #9ec5ff; }
+      a { color: var(--link); }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-variant-ligatures: none; }
+      .text-muted, .small { color: var(--muted) !important; }
 
       /* Cards / Pills */
-      .card {
-        background: var(--card);
-        border: 1px solid var(--line);
-        box-shadow: 0 4px 16px rgba(0,0,0,.25);
-      }
-      .pill {
-        background: #0e1a33;
-        border: 1px solid var(--line);
-        padding: .35rem .65rem;
-        border-radius: 999px;
-        font-size: .9rem;
-        color: var(--muted);
-      }
+      .card { background: var(--card); border: 1px solid var(--line); box-shadow: 0 4px 16px rgba(0,0,0,.15); }
+      .pill { background: color-mix(in oklab, var(--card) 85%, black 15%); border: 1px solid var(--line); padding:.35rem .65rem; border-radius: 999px; font-size:.9rem; color: var(--muted); }
 
-      /* Botões mais legíveis */
+      /* Botões legíveis em ambos temas */
       .btn { font-weight: 600; }
-      .btn-success { background: #1f8a4d; border: 0; }
-      .btn-success:hover { background: #1a6f3e; }
-      .btn-secondary { background: #314462; border: 0; }
-      .btn-secondary:hover { background: #263653; }
-      .btn-danger { background: #c03535; border: 0; }
-      .btn-danger:hover { background: #a22c2c; }
-      .btn-outline-light {
-        border-color: var(--line); color: var(--muted);
-        background: transparent;
-      }
-      .btn-outline-light:hover { background: #192948; color: var(--text); }
+      .btn-success { background: color-mix(in oklab, var(--ok) 80%, black 10%); border: 0; }
+      .btn-success:hover { filter: brightness(0.9); }
+      .btn-secondary { background: color-mix(in oklab, var(--btn-outline) 60%, black 5%); border: 0; }
+      .btn-secondary:hover { filter: brightness(0.95); }
+      .btn-danger { background: color-mix(in oklab, var(--fail) 80%, black 10%); border: 0; }
+      .btn-danger:hover { filter: brightness(0.92); }
+      .btn-outline-light { border-color: var(--btn-outline); color: var(--text); background: transparent; }
+      .btn-outline-light:hover { background: var(--hover); }
 
       /* Badges */
-      .badge-ok   { background: var(--ok); }
+      .badge-ok { background: var(--ok); }
       .badge-fail { background: var(--fail); }
 
-      /* Tabela mais legível */
+      /* Busca */
+      .search { background: color-mix(in oklab, var(--card) 75%, black 10%); border:1px solid var(--line); color: var(--text); height: 38px; }
+      .search::placeholder { color: var(--muted); opacity: .95; }
+
+      /* Tabela */
       .table { margin: 0; }
       .table thead {
-        color: var(--text);
-        background: #0c1324;
+        color: var(--text); background: var(--thead);
         position: sticky; top: 0; z-index: 2;
       }
-      .table th, .table td {
-        padding: .85rem 1rem;
-        vertical-align: middle;
-        border-color: var(--line);
-        font-size: 0.98rem;
-      }
+      .table th, .table td { padding:.9rem 1rem; vertical-align: middle; border-color: var(--line); font-size: 1rem; }
       .table tbody tr:nth-child(even) { background: var(--card-2); }
       .table tbody tr:hover { background: var(--hover); }
 
-      /* Busca */
-      .search {
-        background: #0e1528;
-        border: 1px solid var(--line);
-        color: var(--text);
-        height: 38px;
-      }
-      .search::placeholder { color: #aabbe3; opacity: .9; }
-
-      .text-muted, .small { color: var(--muted) !important; }
+      .scrollbox { max-height: 320px; overflow: auto; white-space: pre; border: 1px solid var(--line); border-radius: .5rem; padding:.5rem; background: color-mix(in oklab, var(--card) 90%, black 5%); }
       #alert { display:none; }
-      .scrollbox { max-height: 320px; overflow: auto; white-space: pre; border: 1px solid var(--line); border-radius: .5rem; padding: .5rem; background:#0b152a; }
-
-      /* Toolbar responsiva */
       .toolbar { gap:.5rem; flex-wrap: wrap; }
       .toolbar .btn, .toolbar a { white-space: nowrap; }
     </style>
@@ -127,6 +108,7 @@
           <button id="btn-refresh" class="btn btn-secondary btn-sm">Atualizar</button>
           <button id="btn-clear" class="btn btn-danger btn-sm">Limpar banco</button>
           <button id="btn-toggle-auto" class="btn btn-outline-light btn-sm">Pausar auto</button>
+          <button id="btn-theme" class="btn btn-outline-light btn-sm" title="Alternar tema">🌙 Escuro</button>
         </div>
       </div>
 
@@ -134,11 +116,11 @@
       <div class="card mb-3">
         <div class="card-body d-flex flex-wrap gap-4 align-items-start">
           <div>
-            <div class="small text-muted mb-1">FQDNs monitorados</div>
+            <div class="small text-muted mb-1">Endereços monitorados</div>
             {% if fqdns and fqdns|length > 0 %}
               <div class="mono">{{ ", ".join(fqdns) }}</div>
             {% else %}
-              <div class="text-warning fw-semibold">Nenhum FQDN configurado. Defina <span class="mono">MONITOR_FQDNS</span>.</div>
+              <div class="text-warning fw-semibold">Nenhum endereço configurado. Defina <span class="mono">MONITOR_FQDNS</span>.</div>
             {% endif %}
           </div>
           <div class="ms-auto d-flex gap-4 flex-wrap">
@@ -202,43 +184,40 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-      /* ===== Comportamento ===== */
+      // ===== Tema claro/escuro =====
+      const btnTheme = document.getElementById('btn-theme');
+      function setTheme(theme){
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+        btnTheme.textContent = theme === 'dark' ? '🌙 Escuro' : '☀️ Claro';
+      }
+      (function initThemeBtn(){
+        const current = document.documentElement.getAttribute('data-theme') || 'light';
+        btnTheme.textContent = current === 'dark' ? '🌙 Escuro' : '☀️ Claro';
+        btnTheme.addEventListener('click', () => {
+          const now = document.documentElement.getAttribute('data-theme') || 'light';
+          setTheme(now === 'dark' ? 'light' : 'dark');
+        });
+      })();
+
+      // ===== Restante do app (igual ao anterior) =====
       const AUTO_MS_DEFAULT = 15000;
-      let autoMs = AUTO_MS_DEFAULT;
-      let autoTimer = null;
-      let autoPaused = false;
+      let autoMs = AUTO_MS_DEFAULT, autoTimer=null, autoPaused=false;
 
       const $ = sel => document.querySelector(sel);
-      const tbody = $('#rows');
-      const alertBox = $('#alert');
-      const search = $('#search');
-      const btnRun = $('#btn-run');
-      const btnRefresh = $('#btn-refresh');
-      const btnClear = $('#btn-clear');
-      const btnToggleAuto = $('#btn-toggle-auto');
+      const tbody = $('#rows'), alertBox = $('#alert'), search = $('#search');
+      const btnRun = $('#btn-run'), btnRefresh = $('#btn-refresh'), btnClear = $('#btn-clear'), btnToggleAuto = $('#btn-toggle-auto');
       const switchIPv6 = $('#switch-ipv6');
-      const countUp = $('#count-up'), countDown = $('#count-down'), countTotal = $('#count-total');
-      const lastUpdate = $('#last-update');
-      $('#auto-interval').textContent = Math.floor(autoMs/1000);
+      const countUp = $('#count-up'), countDown = $('#count-down'), countTotal = $('#count-total'), lastUpdate = $('#last-update');
+      document.getElementById('auto-interval').textContent = Math.floor(autoMs/1000);
 
-      const esc = v => (v == null ? '' : String(v)
-        .replace(/&/g,'&amp;').replace(/</g,'&lt;')
-        .replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'));
-
+      const esc = v => (v == null ? '' : String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;'));
       const badge = (cls, text) => `<span class="badge ${cls}">${esc(text)}</span>`;
 
-      function showAlert(msg) {
-        alertBox.textContent = msg;
-        alertBox.style.display = 'block';
-        setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
-      }
+      function showAlert(msg){ alertBox.textContent = msg; alertBox.style.display = 'block'; setTimeout(()=>alertBox.style.display='none', 4000); }
+      function formatWhen(iso){ try { return new Date(iso).toLocaleString(); } catch { return iso||''; } }
 
-      function formatWhen(iso) {
-        try { return new Date(iso).toLocaleString(); }
-        catch { return iso || ''; }
-      }
-
-      function reachCell(r) {
+      function reachCell(r){
         if (r.ping_ok) {
           const hint = r.ping_error ? `<div class="small text-success mt-1">${esc(r.ping_error)}</div>` : '';
           return badge('badge-ok','UP') + hint;
@@ -247,26 +226,23 @@
         return badge('badge-fail','FAIL') + err;
       }
 
-      function rowHtml(r) {
+      function rowHtml(r){
         return `
           <tr data-fqdn="${esc(r.fqdn)}" data-ip="${esc(r.ip)}">
             <td class="mono fw-semibold">${esc(r.fqdn)}</td>
             <td class="mono">${esc(r.ip)}</td>
             <td>${reachCell(r)}</td>
-            <td>${r.trace_ok
-              ? `<button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#trace-${r.id}">Ver</button>`
-              : badge('badge-fail','FAIL')}</td>
+            <td>${r.trace_ok ? `<button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#trace-${r.id}">Ver</button>` : badge('badge-fail','FAIL')}</td>
             <td class="small mono">${esc(formatWhen(r.created_at))}</td>
           </tr>
           <tr class="collapse" id="trace-${r.id}">
             <td colspan="5"><div class="scrollbox mono">${esc(r.trace_output || '')}</div></td>
-          </tr>
-        `;
+          </tr>`;
       }
 
-      function applyFilter() {
+      function applyFilter(){
         const q = (search.value || '').toLowerCase().trim();
-        for (const tr of tbody.querySelectorAll('tr')) {
+        for (const tr of tbody.querySelectorAll('tr')){
           if (tr.classList.contains('collapse')) continue;
           const fq = tr.getAttribute('data-fqdn')?.toLowerCase() || '';
           const ip = tr.getAttribute('data-ip')?.toLowerCase() || '';
@@ -277,25 +253,22 @@
         }
       }
 
-      function updateStats(data) {
-        const total = data.length;
-        const up = data.filter(r => r.ping_ok).length;
-        countTotal.textContent = total;
-        countUp.textContent = up;
-        countDown.textContent = total - up;
+      function updateStats(data){
+        const total = data.length, up = data.filter(r => r.ping_ok).length;
+        countTotal.textContent = total; countUp.textContent = up; countDown.textContent = total - up;
         lastUpdate.textContent = new Date().toLocaleString();
       }
 
-      async function refreshTable() {
-        try {
+      async function refreshTable(){
+        try{
           const res = await fetch('/export.json?latest=1', { cache: 'no-store' });
           const data = await res.json();
           if (!Array.isArray(data)) return;
-          tbody.innerHTML = data.length ? data.map(rowHtml).join('')
-                                        : `<tr><td colspan="5" class="text-center text-muted p-4">Sem dados ainda. Clique em <b>Executar agora</b>.</td></tr>`;
-          updateStats(data);
-          applyFilter();
-        } catch (e) { /* silencioso */ }
+          tbody.innerHTML = data.length
+            ? data.map(rowHtml).join('')
+            : `<tr><td colspan="5" class="text-center text-muted p-4">Sem dados ainda. Clique em <b>Executar agora</b>.</td></tr>`;
+          updateStats(data); applyFilter();
+        } catch(e){ /* silencioso */ }
       }
 
       function startAuto(){ if(!autoTimer) autoTimer = setInterval(refreshTable, autoMs); }

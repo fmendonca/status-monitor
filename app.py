@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from flask import Flask, render_template, request, jsonify, Response
 import yaml  # pip install PyYAML
 
-APP_TITLE = "FQDN Monitor"
+APP_TITLE = "Status Monitor"
 DB_PATH = os.getenv("DB_PATH", "monitor.db")
 INTERVAL = int(os.getenv("MONITOR_INTERVAL", "300"))
 HTTP_TIMEOUT = float(os.getenv("HTTP_TIMEOUT", "6.0"))

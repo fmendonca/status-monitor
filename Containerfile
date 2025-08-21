@@ -14,6 +14,7 @@ RUN microdnf -y install \
       python3-pip \
       iputils \
       traceroute \
+      nmap \
     && microdnf -y clean all \
     && pip3 --no-cache-dir install --upgrade pip
 
